@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Monthly Budget Tracker</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+:root{--bg:#080d18;--panel:#101827;--card:#111827;--card2:#172033;--line:#263244;--text:#e5e7eb;--muted:#9ca3af;--blue:#38bdf8;--green:#22c55e;--red:#ef4444;--yellow:#f59e0b}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;background:radial-gradient(circle at top left,rgba(56,189,248,.13),transparent 35%),var(--bg);color:var(--text)}
+header{padding:24px 18px;border-bottom:1px solid var(--line);background:rgba(8,13,24,.93);position:sticky;top:0;z-index:10;backdrop-filter:blur(10px)}
+.wrap{max-width:1400px;margin:auto}.top{display:flex;justify-content:space-between;gap:14px;align-items:center;flex-wrap:wrap}h1{margin:0;font-size:28px}.sub{color:var(--muted);font-size:13px;margin-top:6px}
+button,select{border:1px solid var(--line);background:var(--card2);color:var(--text);border-radius:10px;padding:10px 13px;font-weight:700;cursor:pointer}
+button:hover{border-color:var(--blue)}.primary{background:linear-gradient(135deg,#0ea5e9,#2563eb);border:0}.green{background:linear-gradient(135deg,#16a34a,#15803d);border:0}.red{background:linear-gradient(135deg,#ef4444,#b91c1c);border:0}
+main{max-width:1400px;margin:auto;padding:20px}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}.tab.active{border-color:var(--blue);color:white}.tab{color:var(--muted)}
+.panel{display:none}.panel.active{display:block}.box{background:rgba(17,24,39,.92);border:1px solid var(--line);border-radius:18px;padding:18px;margin-bottom:16px;box-shadow:0 20px 70px rgba(0,0,0,.18)}
+.controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}.small{font-size:12px;color:var(--muted);line-height:1.5}.pill{border:1px solid var(--line);border-radius:999px;padding:5px 10px;color:var(--muted);font-size:12px}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.kpi{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:17px}.label{color:var(--muted);font-size:13px}.value{font-size:28px;font-weight:900;margin-top:9px}.note{color:var(--muted);font-size:12px;margin-top:7px}
+.grid2{display:grid;grid-template-columns:1.15fr .85fr;gap:16px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}h2{margin:0 0 14px;font-size:18px}canvas{width:100%!important;max-height:370px}
+.tablewrap{overflow:auto;border:1px solid var(--line);border-radius:16px;background:#0f172a}table{width:100%;border-collapse:collapse;min-width:1100px}th,td{border-bottom:1px solid var(--line);padding:9px 8px;text-align:right;font-size:13px;white-space:nowrap}th:first-child,td:first-child,th:nth-child(2),td:nth-child(2),th:nth-child(3),td:nth-child(3){text-align:left}th{background:#111827;color:var(--muted);position:sticky;top:0}td input{width:90px;background:#0b1222;border:1px solid var(--line);color:white;border-radius:8px;padding:7px;text-align:right}
+.insight{background:#0f172a;border:1px solid var(--line);border-left:4px solid var(--blue);border-radius:14px;padding:14px;margin-bottom:12px}.good{border-left-color:var(--green)}.warn{border-left-color:var(--yellow)}.bad{border-left-color:var(--red)}
+@media(max-width:950px){.kpis,.grid2,.grid3{grid-template-columns:1fr}header{position:static}}
+</style>
+</head>
+<body>
+<header><div class="wrap top"><div><h1>Monthly Budget Tracker</h1><div class="sub">GitHub-ready static website with editable monthly budget, charts, trends, insights and recommendations.</div></div><div class="controls"><button class="primary" onclick="addNextMonth()">Add Next Month</button><button onclick="exportData()">Export Backup</button><button onclick="document.getElementById('file').click()">Import Backup</button><input id="file" type="file" accept=".json" style="display:none" onchange="importData(event)"><button class="red" onclick="resetData()">Reset</button></div></div></header>
+<main>
+<div class="tabs">
+<button class="tab active" onclick="openTab('dash',this)">Dashboard</button>
+<button class="tab" onclick="openTab('entry',this)">Monthly Entry</button>
+<button class="tab" onclick="openTab('charts',this)">Charts</button>
+<button class="tab" onclick="openTab('insights',this)">Insights</button>
+<button class="tab" onclick="openTab('recs',this)">Recommendations</button>
+<button class="tab" onclick="openTab('data',this)">All Data</button>
+</div>
+
+<section id="dash" class="panel active">
+<div class="controls box"><span class="small">Selected month:</span><select id="dashMonth" onchange="renderAll()"></select><span class="pill" id="saveStatus">Saved in browser</span></div>
+<div class="kpis box">
+<div class="kpi"><div class="label">Monthly Budget</div><div id="kTotal" class="value">-</div><div id="kNote" class="note">-</div></div>
+<div class="kpi"><div class="label">Card Spend</div><div id="kCard" class="value">-</div><div id="kCardPct" class="note">-</div></div>
+<div class="kpi"><div class="label">Cash Spend</div><div id="kCash" class="value">-</div><div id="kCashPct" class="note">-</div></div>
+<div class="kpi"><div class="label">Month-on-Month Change</div><div id="kMom" class="value">-</div><div class="note">Compared with previous month</div></div>
+</div>
+<div class="grid2"><div class="box"><h2>Monthly Total Trend</h2><canvas id="trend"></canvas></div><div class="box"><h2>Category Split</h2><canvas id="cat"></canvas></div></div>
+<div class="grid3"><div class="box"><h2>Card vs Cash</h2><canvas id="pay"></canvas></div><div class="box"><h2>Top Items</h2><canvas id="topItems"></canvas></div><div class="box"><h2>Quick Insights</h2><div id="quick"></div></div></div>
+</section>
+
+<section id="entry" class="panel">
+<div class="controls box"><span class="small">Edit month:</span><select id="editMonth" onchange="renderEdit()"></select><button class="green" onclick="saveEdit()">Save Month</button><button onclick="copyPrevious()">Copy Previous Month</button><span class="small">Edit budget/card/cash, then save.</span></div>
+<div class="tablewrap"><table id="editTable"></table></div>
+</section>
+
+<section id="charts" class="panel">
+<div class="grid2"><div class="box"><h2>Category Trend</h2><canvas id="catTrend"></canvas></div><div class="box"><h2>Payment Trend</h2><canvas id="payTrend"></canvas></div></div>
+<div class="box"><h2>Item Trend</h2><div class="controls"><span class="small">Select item:</span><select id="itemSelect" onchange="renderCharts()"></select></div><canvas id="itemTrend"></canvas></div>
+</section>
+
+<section id="insights" class="panel"><div class="box"><h2>Data Insight Analysis</h2><div id="insightOut"></div></div></section>
+<section id="recs" class="panel"><div class="box"><h2>Predefined Recommendations</h2><div id="recOut"></div></div></section>
+<section id="data" class="panel"><div class="box"><h2>Full Budget Data</h2><div class="tablewrap"><table id="dataTable"></table></div><p class="small">Important: GitHub Pages is static hosting, so it cannot run SQLite directly. This version stores data in your browser using localStorage. Use Export Backup regularly.</p></div></section>
+</main>
+
+<script>
+const KEY="budget_tracker_v2";
+const initial={months:["Jan","Feb","March","April"],items:[
+{sno:1,item:"Monthly Provision",category:"House Expense",v:{Jan:[200,200,0],Feb:[200,200,0],March:[200,200,0],April:[150,150,0]}},
+{sno:2,item:"Grocery",category:"House Expense",v:{Jan:[200,100,100],Feb:[200,100,100],March:[200,100,100],April:[250,150,100]}},
+{sno:3,item:"Vegetable",category:"House Expense",v:{Jan:[100,100,0],Feb:[150,150,0],March:[150,150,0],April:[170,100,70]}},
+{sno:4,item:"Non-Veg",category:"House Expense",v:{Jan:[100,0,120],Feb:[150,0,150],March:[150,0,150],April:[80,80,0]}},
+{sno:5,item:"Milk",category:"House Expense",v:{Jan:[100,0,100],Feb:[100,100,0],March:[100,100,0],April:[150,150,0]}},
+{sno:6,item:"Fruits & Nuts",category:"House Expense",v:{Jan:[150,100,50],Feb:[150,100,50],March:[150,150,0],April:[170,120,50]}},
+{sno:7,item:"Snacks & Kids Lunch",category:"House Expense",v:{Jan:[150,80,70],Feb:[150,80,70],March:[170,80,90],April:[120,100,20]}},
+{sno:8,item:"Water",category:"House Expense",v:{Jan:[70,0,70],Feb:[70,0,70],March:[70,0,70],April:[70,0,70]}},
+{sno:9,item:"Maid",category:"House Expense",v:{Jan:[0,0,200],Feb:[200,0,200],March:[100,0,100],April:[150,0,150]}},
+{sno:10,item:"Nishu - Maths",category:"Education",v:{Jan:[300,0,300],Feb:[300,0,300],March:[400,0,400],April:[0,0,0]}},
+{sno:11,item:"Nishu - English",category:"Education",v:{Jan:[219,0,219],Feb:[175,0,90],March:[0,0,0],April:[50,0,50]}},
+{sno:12,item:"Akshu - English",category:"Education",v:{Jan:[270,0,270],Feb:[0,0,0],March:[0,0,0],April:[0,0,0]}},
+{sno:14,item:"Akshu - Tamil",category:"Education",v:{Jan:[120,0,90],Feb:[120,0,120],March:[120,0,120],April:[120,0,120]}},
+{sno:15,item:"Akshu - Science",category:"Education",v:{Jan:[160,0,160],Feb:[200,0,200],March:[200,0,200],April:[200,0,200]}},
+{sno:17,item:"Yoga/ Exercise",category:"Sports/Art",v:{Jan:[50,0,0],Feb:[0,0,0],March:[0,0,0],April:[0,0,0]}},
+{sno:18,item:"Kavitha - Pocket Money",category:"Personal Expense",v:{Jan:[150,0,0],Feb:[150,0,150],March:[200,0,200],April:[260,0,260]}},
+{sno:19,item:"Kavitha - Parlour",category:"Personal Expense",v:{Jan:[215,0,215],Feb:[20,0,20],March:[150,0,150],April:[0,0,0]}},
+{sno:20,item:"Others - God",category:"Personal Expense",v:{Jan:[50,0,0],Feb:[0,0,0],March:[0,0,0],April:[60,0,60]}},
+{sno:21,item:"Nishu & Akshu Card",category:"Transport",v:{Jan:[70,0,70],Feb:[100,0,100],March:[100,0,100],April:[100,100,0]}},
+{sno:22,item:"Kavitha - Card",category:"Transport",v:{Jan:[50,50,0],Feb:[50,50,0],March:[50,50,0],April:[50,50,0]}},
+{sno:24,item:"Online Shopping",category:"Others",v:{Jan:[0,0,0],Feb:[0,0,0],March:[0,0,0],April:[50,50,0]}},
+{sno:25,item:"Gifts/Parties",category:"Others",v:{Jan:[0,0,0],Feb:[0,0,0],March:[0,0,0],April:[20,20,0]}},
+{sno:26,item:"Guest",category:"Others",v:{Jan:[0,0,0],Feb:[0,0,0],March:[0,0,0],April:[0,0,0]}}
+]};
+let state=JSON.parse(localStorage.getItem(KEY)||JSON.stringify(initial));let charts={};
+function save(){localStorage.setItem(KEY,JSON.stringify(state));document.getElementById("saveStatus").textContent="Saved in browser"}
+function money(n){return "$"+Number(n||0).toLocaleString("en-SG",{maximumFractionDigits:0})}
+function val(r,m,i){return Number((r.v[m]||[0,0,0])[i]||0)}
+function totals(m){return state.items.reduce((a,r)=>{a.b+=val(r,m,0);a.c+=val(r,m,1);a.h+=val(r,m,2);return a},{b:0,c:0,h:0})}
+function catTotals(m){let o={};state.items.forEach(r=>o[r.category]=(o[r.category]||0)+val(r,m,0));return o}
+function opts(legend=true){return{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:legend,labels:{color:"#cbd5e1"}},tooltip:{callbacks:{label:x=>`${x.dataset.label||x.label}: ${money(x.raw)}`}}},scales:{x:{ticks:{color:"#9ca3af"},grid:{color:"rgba(148,163,184,.12)"}},y:{ticks:{color:"#9ca3af"},grid:{color:"rgba(148,163,184,.12)"},beginAtZero:true}}}}
+function chart(id,cfg){if(charts[id])charts[id].destroy();charts[id]=new Chart(document.getElementById(id),cfg)}
+function sync(){["dashMonth","editMonth"].forEach(id=>{let e=document.getElementById(id),cur=e.value||state.months.at(-1);e.innerHTML=state.months.map(m=>`<option>${m}</option>`).join("");e.value=state.months.includes(cur)?cur:state.months.at(-1)});let s=document.getElementById("itemSelect");let cur=s.value;s.innerHTML=state.items.map((r,i)=>`<option value="${i}">${r.item}</option>`).join("");if(cur)s.value=cur}
+function renderDash(){let m=document.getElementById("dashMonth").value,t=totals(m),idx=state.months.indexOf(m),prev=idx>0?totals(state.months[idx-1]).b:null,d=prev?t.b-prev:0;document.getElementById("kTotal").textContent=money(t.b);document.getElementById("kNote").textContent=m+" planned expense";document.getElementById("kCard").textContent=money(t.c);document.getElementById("kCardPct").textContent=t.b?((t.c/t.b)*100).toFixed(1)+"% of total":"-";document.getElementById("kCash").textContent=money(t.h);document.getElementById("kCashPct").textContent=t.b?((t.h/t.b)*100).toFixed(1)+"% of total":"-";document.getElementById("kMom").textContent=(d>=0?"+":"-")+money(Math.abs(d));document.getElementById("kMom").style.color=d>0?"var(--red)":"var(--green)";document.getElementById("quick").innerHTML=insights(m).slice(0,4).map(card).join("")}
+function renderCharts(){let m=document.getElementById("dashMonth").value,ms=state.months;chart("trend",{type:"line",data:{labels:ms,datasets:[{label:"Total Budget",data:ms.map(x=>totals(x).b),tension:.35,borderWidth:3}]},options:opts()});let c=catTotals(m);chart("cat",{type:"doughnut",data:{labels:Object.keys(c),datasets:[{data:Object.values(c)}]},options:opts(false)});let t=totals(m);chart("pay",{type:"bar",data:{labels:["Card","Cash"],datasets:[{label:m,data:[t.c,t.h]}]},options:opts()});let top=[...state.items].map(r=>({n:r.item,v:val(r,m,0)})).sort((a,b)=>b.v-a.v).slice(0,8);chart("topItems",{type:"bar",data:{labels:top.map(x=>x.n),datasets:[{label:"Budget",data:top.map(x=>x.v)}]},options:{...opts(),indexAxis:"y"}});let cats=[...new Set(state.items.map(r=>r.category))];chart("catTrend",{type:"line",data:{labels:ms,datasets:cats.map(cat=>({label:cat,data:ms.map(mm=>state.items.filter(r=>r.category==cat).reduce((s,r)=>s+val(r,mm,0),0)),tension:.3,borderWidth:2}))},options:opts()});chart("payTrend",{type:"line",data:{labels:ms,datasets:[{label:"Card",data:ms.map(x=>totals(x).c),tension:.3,borderWidth:3},{label:"Cash",data:ms.map(x=>totals(x).h),tension:.3,borderWidth:3}]},options:opts()});let r=state.items[Number(document.getElementById("itemSelect").value||0)];chart("itemTrend",{type:"line",data:{labels:ms,datasets:[{label:r.item,data:ms.map(x=>val(r,x,0)),tension:.3,borderWidth:3},{label:"Card",data:ms.map(x=>val(r,x,1)),tension:.3},{label:"Cash",data:ms.map(x=>val(r,x,2)),tension:.3}]},options:opts()})}
+function renderEdit(){let m=document.getElementById("editMonth").value;let h=`<thead><tr><th>S. No</th><th>Item</th><th>Category</th><th>${m}</th><th>${m} Card</th><th>${m} Cash</th></tr></thead><tbody>`;state.items.forEach((r,i)=>{let v=r.v[m]||[0,0,0];h+=`<tr><td>${r.sno}</td><td>${r.item}</td><td>${r.category}</td><td><input data-i="${i}" data-k="0" type="number" value="${v[0]}"></td><td><input data-i="${i}" data-k="1" type="number" value="${v[1]}"></td><td><input data-i="${i}" data-k="2" type="number" value="${v[2]}"></td></tr>`});let t=totals(m);h+=`<tr><th colspan="3">Total</th><th>${money(t.b)}</th><th>${money(t.c)}</th><th>${money(t.h)}</th></tr></tbody>`;document.getElementById("editTable").innerHTML=h}
+function saveEdit(){let m=document.getElementById("editMonth").value;document.querySelectorAll("#editTable input").forEach(x=>{let r=state.items[+x.dataset.i];if(!r.v[m])r.v[m]=[0,0,0];r.v[m][+x.dataset.k]=Number(x.value||0)});save();renderAll();alert("Saved "+m)}
+function copyPrevious(){let m=document.getElementById("editMonth").value,idx=state.months.indexOf(m);if(idx<=0)return alert("No previous month.");let p=state.months[idx-1];state.items.forEach(r=>r.v[m]=[...(r.v[p]||[0,0,0])]);save();renderAll()}
+function addNextMonth(){let n=prompt("Enter next month name, e.g. May");if(!n)return;if(state.months.includes(n))return alert("Month exists.");let p=state.months.at(-1);state.months.push(n);state.items.forEach(r=>r.v[n]=[...(r.v[p]||[0,0,0])]);save();sync();document.getElementById("dashMonth").value=n;document.getElementById("editMonth").value=n;openTab("entry",document.querySelectorAll(".tab")[1])}
+function renderData(){let h="<thead><tr><th>S. No</th><th>Item</th><th>Category</th>";state.months.forEach(m=>h+=`<th>${m}</th><th>${m} Card</th><th>${m} Cash</th>`);h+="</tr></thead><tbody>";state.items.forEach(r=>{h+=`<tr><td>${r.sno}</td><td>${r.item}</td><td>${r.category}</td>`;state.months.forEach(m=>h+=`<td>${money(val(r,m,0))}</td><td>${money(val(r,m,1))}</td><td>${money(val(r,m,2))}</td>`);h+="</tr>"});h+="<tr><th colspan='3'>Total</th>";state.months.forEach(m=>{let t=totals(m);h+=`<th>${money(t.b)}</th><th>${money(t.c)}</th><th>${money(t.h)}</th>`});h+="</tr></tbody>";document.getElementById("dataTable").innerHTML=h}
+function insights(m){let a=[],t=totals(m),idx=state.months.indexOf(m),pm=idx>0?state.months[idx-1]:null,pt=pm?totals(pm):null,c=catTotals(m),topCat=Object.entries(c).sort((x,y)=>y[1]-x[1])[0],topItem=state.items.map(r=>({n:r.item,v:val(r,m,0)})).sort((x,y)=>y.v-x.v)[0];if(pt){let d=t.b-pt.b,p=pt.b?d/pt.b*100:0;a.push({type:d<=0?"good":"warn",title:"Month-on-month "+(d<=0?"reduction":"increase"),text:`${m} is ${d<=0?"lower":"higher"} than ${pm} by ${money(Math.abs(d))} (${Math.abs(p).toFixed(1)}%).`})}if(topCat)a.push({type:"warn",title:"Largest category: "+topCat[0],text:`${topCat[0]} contributes ${money(topCat[1])}, ${(topCat[1]/t.b*100).toFixed(1)}% of total.`});if(topItem)a.push({type:"warn",title:"Highest item: "+topItem.n,text:`${topItem.n} is the largest line item at ${money(topItem.v)}.`});let cardPct=t.b?t.c/t.b*100:0;a.push({type:cardPct>=50?"good":"warn",title:`Card usage is ${cardPct.toFixed(1)}%`,text:cardPct>=50?"Good traceability. More card payments make review easier.":"Cash is high. Move regular spends to card/bank where possible."});let mismatch=state.items.filter(r=>Math.abs((val(r,m,1)+val(r,m,2))-val(r,m,0))>20);if(mismatch.length)a.push({type:"bad",title:"Budget vs payment mismatch",text:`${mismatch.length} items have card + cash not matching budget. Check ${mismatch.slice(0,3).map(r=>r.item).join(", ")}.`});return a}
+function recs(m){let t=totals(m),c=catTotals(m),out=[{type:"good",title:"Use previous month as baseline",text:"When adding a new month, copy previous month and edit only changed items. This keeps budgeting fast."}];if((c["House Expense"]||0)/t.b>.45)out.push({type:"warn",title:"House expense control",text:"House Expense is the main area. Review grocery, fruits, snacks, vegetables and non-veg for repeat savings."});if((c["Education"]||0)/t.b>.25)out.push({type:"warn",title:"Education planning",text:"Separate fixed tuition from optional classes to avoid sudden spikes."});if(t.h/t.b>.45)out.push({type:"warn",title:"Reduce cash leakage",text:"Cash is harder to audit. Shift predictable spends to card or bank transfer where possible."});out.push({type:"good",title:"Monthly review habit",text:"At month-end, compare budget vs actual, identify one-off spends, and set caps for next month."});return out}
+function card(x){return `<div class="insight ${x.type}"><strong>${x.title}</strong><br><span class="small">${x.text}</span></div>`}
+function renderInsights(){let m=document.getElementById("dashMonth").value;document.getElementById("insightOut").innerHTML=insights(m).map(card).join("");document.getElementById("recOut").innerHTML=recs(m).map(card).join("")}
+function openTab(id,btn){document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));document.querySelectorAll(".tab").forEach(b=>b.classList.remove("active"));document.getElementById(id).classList.add("active");btn.classList.add("active");renderAll()}
+function exportData(){let b=new Blob([JSON.stringify(state,null,2)],{type:"application/json"}),u=URL.createObjectURL(b),a=document.createElement("a");a.href=u;a.download="monthly-budget-backup.json";a.click();URL.revokeObjectURL(u)}
+function importData(e){let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=x=>{try{let d=JSON.parse(x.target.result);if(!d.months||!d.items)throw Error("Invalid file");state=d;save();renderAll();alert("Imported")}catch(err){alert(err.message)}};r.readAsText(f)}
+function resetData(){if(confirm("Reset all data?")){localStorage.removeItem(KEY);state=JSON.parse(JSON.stringify(initial));save();renderAll()}}
+function renderAll(){sync();renderDash();renderCharts();renderEdit();renderData();renderInsights()}
+renderAll();save();
+</script>
+</body>
+</html>
